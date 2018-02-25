@@ -1,0 +1,21 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "PlatformIO",
+            "args": [
+                "run"
+            ],
+            "problemMatcher": [
+                "$platformio"
+            ]
+        },
+        {
+            "label": "OTA",
+            "type": "process",
+            "command": "python C:\\Users\\krase\\.platformio\\packages\\tool-espotapy\\espota.py -i 192.168.178.32 -f .pioenvs\\mhetesp32devkit\\firmware.bin -I 192.168.178.33 -p 3232"
+        }
+    ]
+}
