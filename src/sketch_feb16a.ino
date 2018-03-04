@@ -46,6 +46,7 @@ Basecamp iot {
   Basecamp::ConfigurationUI::always
 };
 
+
 void setup() {
   esp_log_level_set("*", ESP_LOG_WARN);        // set all components to ERROR level
   esp_log_level_set(TAG, ESP_LOG_INFO);
@@ -58,19 +59,6 @@ void setup() {
 
   esp_log_level_set("*", ESP_LOG_WARN);        // set all components to ERROR level
   esp_log_level_set(TAG, ESP_LOG_VERBOSE);
-/*
-  display.eraseDisplay();
-  display.fillScreen(GxEPD_WHITE);
-  display.setRotation(0);
-  display.setFont(f);
-  display.setCursor(10, 30);
-  display.println(" Hallo Jani");
-  display.update();
-*/
-  /*if (WiFi.getMode() == WIFI_OFF)
-  {
-      WiFi.mode(WIFI_MODE_STA);    
-  }*/
 
   uint8_t retry = 0;
   while ((WiFi.status() != WL_CONNECTED) && (retry < 20))
@@ -83,10 +71,12 @@ void setup() {
   if (retry < 20)
   {
     connection = true;
+    //Serial.println(" ** Wifi connected");
     iot.mqtt.publish("wecker/state", 0, true, "Wifi Connected");
   }
   else
   {
+    //Serial.println(" ** Wifi ERROR");
     iot.mqtt.publish("wecker/state", 0, true, "Wifi Not connected");    
   }
 
@@ -94,40 +84,37 @@ void setup() {
   // Initialize sntp:
   configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");
 
-  DEBUG_PRINTLN(" * SETUP DONE *********");
-
-  Serial.println("   erase");
   display.eraseDisplay(true); // Erase with partial update
-  display.fillScreen(GxEPD_WHITE);
-  display.update();
+
+  struct tm timeinfo; 
+  getLocalTime(&timeinfo, 10000);
+
+  DEBUG_PRINTLN(" * SETUP DONE *********");
 }
 
 
 
 void loop()
 {
-  struct tm timeinfo; 
-  static int count = 0;
-  const GFXfont* f_big = &FreeMonoBold24pt7b;
   static uint16_t day = 380;
   static uint8_t hour = 70;
   static uint8_t minute = 70;
-  static uint8_t sec = 0;
+  static uint8_t sec = 0;  
+  struct tm timeinfo; 
+  static int count = 0;
+  const GFXfont* f_big = &FreeMonoBold24pt7b;
 
   Serial.print("Loop "); Serial.println(count);
 
-  if (connection)
+
+  if (count == 0)
   {
-    while (sec == timeinfo.tm_sec)
-    {
-      if ( !getLocalTime(&timeinfo, 10000) )
-      {
-        DEBUG_PRINTLN("AAAAAAA Failed to get time +++++++++++++");
-      }
-      if (sec == timeinfo.tm_sec)
-            delay(200);
-    }
+      Serial.println("   erase");
+      //display.eraseDisplay(true); // Erase with partial update
+      display.fillScreen(GxEPD_WHITE);
+      display.update();
   }
+
 
   // TODO: 
   // Check when last wheather update was done
@@ -137,16 +124,23 @@ void loop()
 
   count++;
 
+  if ( !getLocalTime(&timeinfo, 10000) )
+  {
+    DEBUG_PRINTLN("AAAAAAA Failed to get time +++++++++++++");
+  }
+
   display.fillScreen(GxEPD_WHITE);
   display.setCursor(0, 80);
   display.setFont(f_big);
-  display.print(&timeinfo, "%d.%m.%Y\n%R:%S");
+  display.print(&timeinfo, "%d.%m.%Y\n%R"/*:%S"*/);
 
-  /*{
+
+  {
     char strftime_buf[20];
-    strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y - %R (%z) (%Z)", &timeinfo);
+    int len = strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y - %R (%z) (%Z)", &timeinfo);
+    strftime_buf[len] = 0;
     iot.mqtt.publish("wecker/time", 0, true, strftime_buf);
-  }*/
+  }
 
   if (timeinfo.tm_yday != day)
   {
@@ -169,23 +163,13 @@ void loop()
     display.updateWindow(160, 95, 80, 50);
     sec = timeinfo.tm_sec;
   }*/
-  
 
-/*    if (iot.wifi.status() == WL_CONNECTED)
-    {
-      ESP_LOGI(TAG, "Disconnecting WIFI");
-      iot.wifi.disconnect();
-      WiFi.mode(WIFI_OFF);
-    }*/
-
-    //esp_sleep_enable_timer_wakeup(850000LL * sleep_sec);
-    //esp_light_sleep_start();
-    //esp_deep_sleep(1000000LL * sleep_sec);
     const int sleep_sec = 30;
-    ESP_LOGI(TAG, "Entering light sleep for %d seconds", sleep_sec);
+    ESP_LOGI(TAG, "Entering delay for %d seconds", sleep_sec);
     delay(850LL * sleep_sec);
 }
 
+/*
 void getWeatherData() //client function to send/receive GET request data.
 {
   String result ="";
@@ -217,10 +201,6 @@ void getWeatherData() //client function to send/receive GET request data.
     result = client.readStringUntil('\r');
   }
 
-  result.replace('[', ' ');
-  result.replace(']', ' ');
-
-
   char jsonArray [result.length()+1];
   result.toCharArray(jsonArray,sizeof(jsonArray));
   jsonArray[result.length() + 1] = '\0';
@@ -245,10 +225,12 @@ void getWeatherData() //client function to send/receive GET request data.
   Serial.print("  WeatherID: ");
   Serial.println(weatherID);
 }
-
+*/
 
 void show_weather_data()
 {
+  //time_t time_sec;
+  struct tm time_info, time_info2;
   #include "weather_data.h"
 
   DynamicJsonBuffer json_buf;
@@ -264,12 +246,30 @@ void show_weather_data()
 
   String location = root["city"]["name"];
   JsonArray& list = root["list"];
+  JsonObject& list0 = list[0];
 
-  String temperature = list[0]["main"]["temp"];  
-  String weather = list[0]["weather"][0]["main"];
-  String description = list[0]["weather"][0]["description"];
-  String idString = list[0]["weather"][0]["id"];
-  String timeS = list[0]["dt_txt"];
+  String temperature = list0["main"]["temp"];  
+  String weather = list0["weather"][0]["main"];
+  String description = list0["weather"][0]["description"];
+  String idString = list0["weather"][0]["id"];
+  String timeS = list0["dt_txt"];
+  long list0_dt = list0["dt"];
+
+  // Find next day noon
+  localtime_r(&list0_dt, &time_info);
+  for (int i = 0; i < 10; i++)
+  {
+    long time_sec = list[i]["dt"];
+    localtime_r(&time_sec, &time_info2);
+    if (time_info2.tm_yday != time_info.tm_yday && time_info2.tm_hour > 12)
+    {
+      char strftime_buf[20];
+      int len = strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y - %R", &time_info2);
+      strftime_buf[len] = 0;
+      Serial.println(strftime_buf);      
+      break;
+    }
+  }
 
   Serial.println(location +": "+temperature+"; "+weather+"; "+description+"; "+timeS);
 
